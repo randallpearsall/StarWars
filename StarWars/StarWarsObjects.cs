@@ -35,7 +35,7 @@ namespace StarWars
         public string URL { get; set; }
     }
 
-    class Person
+    class Character
     {
         [JsonProperty(PropertyName = "name")]
         public string Name { get; set; }

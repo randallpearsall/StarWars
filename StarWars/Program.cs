@@ -4,12 +4,29 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Threading;
 
 namespace StarWars
 {
-    class Program
+    static class Program
     {
         static void Main(string[] Args)
+        {
+            Console.WriteLine("\r\nRun asynchronously?: N/<Y>");
+            string a = Console.ReadLine();
+            Console.Clear();
+
+            if (a == "y" || a == "Y" || a == "")
+                Process2.Main2(Args);
+            else if (a == "n" || a == "N")
+                Process1.Main1(Args);
+        }
+
+    }
+
+    static class Process1
+    {
+        public static void Main1(string[] Args)
         {
             const string Url = "https://swapi.co/api/";
             var listItems = new List<string>();
@@ -75,6 +92,68 @@ namespace StarWars
             Console.ReadLine();
 #endif
 
+        }
+
+        private static string GetReleases(IRequestHandler requestHandler, string url)
+        {
+            return requestHandler.GetReleases(url);
+        }
+
+    }
+
+    static class Process2
+    {
+        private static Thread _Thread2;
+        private static List<string> _ListItems;
+        private static string _Property;
+
+        public static void Main2(string[] Args)
+        {
+            const string rootUrl = "https://swapi.co/api/";
+            string url = string.Empty;
+            var listItems = new List<string>();
+            string response = string.Empty;
+
+            try
+            {
+                string title = Args[0];
+                string item = Args[1];
+                _Property = Args[2];
+                IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
+                url = rootUrl + "films/?search=" + title;
+                response = GetReleases(httpWebRequestHandler, url);
+                JObject jFilms = JObject.Parse(response);
+                JToken tokenFilms = jFilms.SelectToken("results");
+
+                char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
+                string items = tokenFilms[0][item].ToString().TrimStart(c).TrimEnd(c);
+                string[] s = new string[] { "\",\r\n  \"" };
+                _ListItems = items.Split(s, StringSplitOptions.None).ToList();
+
+                _Thread2 = new Thread(Thread2Main) { Name = "Thread2" };
+                _Thread2.Start();
+                _Thread2.Join();
+            }
+            catch (WebException ex)
+            {
+                string path = Path.GetTempPath();
+                string file = "Error.log";
+                string message = DateTime.Now + " " + ex.Message + "\r\n";
+                File.AppendAllText(Path.Combine(path, file), message);
+                Console.WriteLine(message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+
+            Console.ReadLine();
+        }
+
+        private static void Thread2Main()
+        {
+            Test test = new Test();
+            test.GetItems(_ListItems, _Property);
         }
 
         private static string GetReleases(IRequestHandler requestHandler, string url)
