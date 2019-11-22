@@ -140,11 +140,15 @@ namespace StarWars
                 string file = "Error.log";
                 string message = DateTime.Now + " " + ex.Message + "\r\n";
                 File.AppendAllText(Path.Combine(path, file), message);
+                message += "\r\nPress <enter> to continue";
                 Console.WriteLine(message);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                string message = ex.Message + "\r\n" +
+                    "Did you spell the parameters correctly?\r\n\r\n" +
+                    "Press <enter> to continue";
+                Console.WriteLine(message);
             }
 
             Console.ReadLine();
