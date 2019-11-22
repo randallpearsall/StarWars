@@ -10,7 +10,7 @@ namespace StarWars
 {
     public class HttpWebRequestHandler : IRequestHandler
     {
-        public string GetReleases(string url)
+        public string GetRestItems(string url)
         {
             var request = (HttpWebRequest)WebRequest.Create(url);
             var content = string.Empty;
@@ -35,15 +35,15 @@ namespace StarWars
 
     }
 
-    public class Test
+    public class HttpRequestHandler
     {
         private List<string> _apiProperties = new List<string>();
 
-        public async void GetItems(List<string> lists, string property)
+        public async void GetRestItems2(List<string> lists, string property)
         {
             try
             {
-                await GetItemsTask(lists, property);
+                await GetRestItems2Task(lists, property);
             }
             catch (Exception ex)
             {
@@ -56,7 +56,7 @@ namespace StarWars
             }
         }
 
-        public async Task GetItemsTask(List<string> lists, string property)
+        public async Task GetRestItems2Task(List<string> lists, string property)
         {
             using (var httpClient = new HttpClient())
             {
@@ -75,7 +75,7 @@ namespace StarWars
                         {
                             char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
                             string url = apiProperty.TrimStart(c).TrimEnd(c);
-                            await GetItemsTask(new List<string>() { url }, "name" );
+                            await GetRestItems2Task(new List<string>() { url }, "name" );
                         }
                         else if (!string.Equals(apiProperty, "[]") && !_apiProperties.Contains(apiProperty))
                         {

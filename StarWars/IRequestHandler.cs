@@ -2,6 +2,6 @@
 {
     public interface IRequestHandler
     {
-        string GetReleases(string url);
+        string GetRestItems(string url);
     }
 }

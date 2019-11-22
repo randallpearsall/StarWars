@@ -96,7 +96,7 @@ namespace StarWars
 
         private static string GetReleases(IRequestHandler requestHandler, string url)
         {
-            return requestHandler.GetReleases(url);
+            return requestHandler.GetRestItems(url);
         }
 
     }
@@ -104,7 +104,7 @@ namespace StarWars
     static class Process2
     {
         private static Thread _Thread2;
-        private static List<string> _ListItems;
+        private static List<string> _ListItems2;
         private static string _Property;
 
         public static void Main2(string[] Args)
@@ -121,16 +121,16 @@ namespace StarWars
                 _Property = Args[2];
                 IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
                 url = rootUrl + "films/?search=" + title;
-                response = GetReleases(httpWebRequestHandler, url);
+                response = GetItems(httpWebRequestHandler, url);
                 JObject jFilms = JObject.Parse(response);
                 JToken tokenFilms = jFilms.SelectToken("results");
 
                 char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
                 string items = tokenFilms[0][item].ToString().TrimStart(c).TrimEnd(c);
                 string[] s = new string[] { "\",\r\n  \"" };
-                _ListItems = items.Split(s, StringSplitOptions.None).ToList();
+                _ListItems2 = items.Split(s, StringSplitOptions.None).ToList();
 
-                _Thread2 = new Thread(Thread2Main) { Name = "Thread2" };
+                _Thread2 = new Thread(GetItems2) { Name = "Thread2" };
                 _Thread2.Start();
                 _Thread2.Join();
             }
@@ -154,15 +154,15 @@ namespace StarWars
             Console.ReadLine();
         }
 
-        private static void Thread2Main()
+        private static string GetItems(IRequestHandler handler, string url)
         {
-            Test test = new Test();
-            test.GetItems(_ListItems, _Property);
+            return handler.GetRestItems(url);
         }
 
-        private static string GetReleases(IRequestHandler requestHandler, string url)
+        private static void GetItems2()
         {
-            return requestHandler.GetReleases(url);
+            HttpRequestHandler handler2 = new HttpRequestHandler();
+            handler2.GetRestItems2(_ListItems2, _Property);
         }
 
     }
