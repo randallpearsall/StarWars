@@ -35,7 +35,7 @@ namespace StarWars
                 string property = Args[2];
                 string url = "https://swapi.co/api/films";
                 IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
-                string response = GetReleases(httpWebRequestHandler, url);
+                string response = GetItems(httpWebRequestHandler, url);
                 JToken tokenFilms = JObject.Parse(response).SelectToken("results");
                 List<string> listItems = new List<string>();
 
@@ -51,14 +51,14 @@ namespace StarWars
 
                             for (int j = 0; j < tokenItems.Count(); j++)
                             {
-                                response = GetReleases(httpWebRequestHandler, tokenItems[j].ToString());
+                                response = GetItems(httpWebRequestHandler, tokenItems[j].ToString());
                                 string listItem = JObject.Parse(response)[property].ToString();
 
                                 if (listItem.Contains("http"))
                                 {
                                     char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
                                     url = listItem.TrimStart(c).TrimEnd(c);
-                                    response = GetReleases(httpWebRequestHandler, url);
+                                    response = GetItems(httpWebRequestHandler, url);
                                     listItem = JObject.Parse(response)["name"].ToString().Trim();
                                 }
 
@@ -99,7 +99,7 @@ namespace StarWars
 #endif
         }
 
-        private static string GetReleases(IRequestHandler requestHandler, string url)
+        private static string GetItems(IRequestHandler requestHandler, string url)
         {
             return requestHandler.GetRestItems(url);
         }
