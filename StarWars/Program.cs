@@ -28,19 +28,16 @@ namespace StarWars
     {
         public static void Main1(string[] Args)
         {
-            const string Url = "https://swapi.co/api/";
-            var listItems = new List<string>();
-            string response = string.Empty;
-
             try
             {
                 string title = Args[0];
                 string item = Args[1];
                 string property = Args[2];
+                string url = "https://swapi.co/api/films";
                 IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
-                response = GetReleases(httpWebRequestHandler, Url + "films");
-                JObject jFilms = JObject.Parse(response);
-                JToken tokenFilms = jFilms.SelectToken("results");
+                string response = GetReleases(httpWebRequestHandler, url);
+                JToken tokenFilms = JObject.Parse(response).SelectToken("results");
+                List<string> listItems = new List<string>();
 
                 for (int i = 0; i < tokenFilms.Count(); i++)
                 {
@@ -55,9 +52,18 @@ namespace StarWars
                             for (int j = 0; j < tokenItems.Count(); j++)
                             {
                                 response = GetReleases(httpWebRequestHandler, tokenItems[j].ToString());
-                                JObject jItems = JObject.Parse(response);
-                                string listItem = jItems[property].ToString();
-                                if (!listItems.Contains(listItem)) listItems.Add(listItem);
+                                string listItem = JObject.Parse(response)[property].ToString();
+
+                                if (listItem.Contains("http"))
+                                {
+                                    char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
+                                    url = listItem.TrimStart(c).TrimEnd(c);
+                                    response = GetReleases(httpWebRequestHandler, url);
+                                    listItem = JObject.Parse(response)["name"].ToString().Trim();
+                                }
+
+                                if (!string.IsNullOrEmpty(listItem) && !string.Equals(listItem, "[]") && !listItems.Contains(listItem))
+                                    listItems.Add(listItem);
                             }
 
                         }
@@ -91,7 +97,6 @@ namespace StarWars
             Console.WriteLine("Press <enter> to continue");
             Console.ReadLine();
 #endif
-
         }
 
         private static string GetReleases(IRequestHandler requestHandler, string url)
@@ -103,36 +108,29 @@ namespace StarWars
 
     static class Process2
     {
-        private static Thread _Thread2;
-        private static List<string> _ListItems2;
-        private static string _Property;
+        private static List<string> _listItems2;
+        private static string _property;
 
         public static void Main2(string[] Args)
         {
-            const string rootUrl = "https://swapi.co/api/";
-            string url = string.Empty;
-            var listItems = new List<string>();
-            string response = string.Empty;
-
             try
             {
                 string title = Args[0];
                 string item = Args[1];
-                _Property = Args[2];
+                _property = Args[2];
+                string url = "https://swapi.co/api/films/?search=" + title;
                 IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
-                url = rootUrl + "films/?search=" + title;
-                response = GetItems(httpWebRequestHandler, url);
-                JObject jFilms = JObject.Parse(response);
-                JToken tokenFilms = jFilms.SelectToken("results");
+                string response = GetItems(httpWebRequestHandler, url);
+                JToken tokenFilms = JObject.Parse(response).SelectToken("results");
 
                 char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
                 string items = tokenFilms[0][item].ToString().TrimStart(c).TrimEnd(c);
                 string[] s = new string[] { "\",\r\n  \"" };
-                _ListItems2 = items.Split(s, StringSplitOptions.None).ToList();
+                _listItems2 = items.Split(s, StringSplitOptions.None).ToList();
 
-                _Thread2 = new Thread(GetItems2) { Name = "Thread2" };
-                _Thread2.Start();
-                _Thread2.Join();
+                Thread thread2 = new Thread(GetItems2) { Name = "Thread2" };
+                thread2.Start();
+                thread2.Join();
             }
             catch (WebException ex)
             {
@@ -162,7 +160,7 @@ namespace StarWars
         private static void GetItems2()
         {
             HttpRequestHandler handler2 = new HttpRequestHandler();
-            handler2.GetRestItems2(_ListItems2, _Property);
+            handler2.GetRestItems2(_listItems2, _property);
         }
 
     }

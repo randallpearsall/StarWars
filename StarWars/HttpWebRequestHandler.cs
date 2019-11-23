@@ -67,17 +67,15 @@ namespace StarWars
                     if (response.IsSuccessStatusCode)
                     {
                         string json = await response.Content.ReadAsStringAsync();
-
-                        JObject jItems = JObject.Parse(json);
-                        string apiProperty = jItems.SelectToken(property).ToString();
+                        string apiProperty = JObject.Parse(json).SelectToken(property).ToString().Trim();
 
                         if (apiProperty.Contains("http"))
                         {
                             char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
                             string url = apiProperty.TrimStart(c).TrimEnd(c);
-                            await GetRestItems2Task(new List<string>() { url }, "name" );
+                            await GetRestItems2Task(new List<string>() { url }, "name");
                         }
-                        else if (!string.Equals(apiProperty, "[]") && !_apiProperties.Contains(apiProperty))
+                        else if (!string.IsNullOrEmpty(apiProperty) && !string.Equals(apiProperty, "[]") && !_apiProperties.Contains(apiProperty))
                         {
                             Console.WriteLine(apiProperty);
                             _apiProperties.Add(apiProperty);
