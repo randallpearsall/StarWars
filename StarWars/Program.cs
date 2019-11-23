@@ -33,49 +33,35 @@ namespace StarWars
                 string title = Args[0];
                 string item = Args[1];
                 string property = Args[2];
-                string url = "https://swapi.co/api/films";
+                string url = "https://swapi.co/api/films/?search=" + title;
                 IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
                 string response = GetItems(httpWebRequestHandler, url);
-                JToken tokenFilms = JObject.Parse(response).SelectToken("results");
-                List<string> listItems = new List<string>();
+                JToken tokenFilm = JObject.Parse(response).SelectToken("results")[0];
 
-                for (int i = 0; i < tokenFilms.Count(); i++)
+                char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
+                string items = tokenFilm[item].ToString().TrimStart(c).TrimEnd(c);
+                string[] s = new string[] { "\",\r\n  \"" };
+                List<string> listItems = items.Split(s, StringSplitOptions.None).ToList();
+                List<string> listValues = new List<string>();
+
+                for (int j = 0; j < listItems.Count; j++)
                 {
-                    string apiTitle = tokenFilms[i]["title"].ToString();
+                    response = GetItems(httpWebRequestHandler, listItems[j]);
+                    string value = JObject.Parse(response)[property].ToString();
 
-                    if (string.Equals(title, apiTitle))
+                    if (value.Contains("http"))
                     {
-                        if (tokenFilms[i][item].HasValues)
-                        {
-                            JToken tokenItems = tokenFilms[i][item];
-
-                            for (int j = 0; j < tokenItems.Count(); j++)
-                            {
-                                response = GetItems(httpWebRequestHandler, tokenItems[j].ToString());
-                                string listItem = JObject.Parse(response)[property].ToString();
-
-                                if (listItem.Contains("http"))
-                                {
-                                    char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
-                                    url = listItem.TrimStart(c).TrimEnd(c);
-                                    response = GetItems(httpWebRequestHandler, url);
-                                    listItem = JObject.Parse(response)["name"].ToString().Trim();
-                                }
-
-                                if (!string.IsNullOrEmpty(listItem) && !string.Equals(listItem, "[]") && !listItems.Contains(listItem))
-                                    listItems.Add(listItem);
-                            }
-
-                        }
-
-                        break;
+                        url = value.TrimStart(c).TrimEnd(c);
+                        response = GetItems(httpWebRequestHandler, url);
+                        value = JObject.Parse(response)["name"].ToString().Trim();
                     }
 
-                }
+                    if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]") && !listItems.Contains(value))
+                    {
+                        Console.WriteLine(value);
+                        listValues.Add(value);
+                    }
 
-                foreach (string listItem in listItems)
-                {
-                    Console.WriteLine(listItem);
                 }
 
             }
@@ -121,10 +107,10 @@ namespace StarWars
                 string url = "https://swapi.co/api/films/?search=" + title;
                 IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
                 string response = GetItems(httpWebRequestHandler, url);
-                JToken tokenFilms = JObject.Parse(response).SelectToken("results");
+                JToken tokenFilm = JObject.Parse(response).SelectToken("results")[0];
 
                 char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
-                string items = tokenFilms[0][item].ToString().TrimStart(c).TrimEnd(c);
+                string items = tokenFilm[item].ToString().TrimStart(c).TrimEnd(c);
                 string[] s = new string[] { "\",\r\n  \"" };
                 _listItems2 = items.Split(s, StringSplitOptions.None).ToList();
 

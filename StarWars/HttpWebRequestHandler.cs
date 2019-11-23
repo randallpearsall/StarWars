@@ -37,7 +37,7 @@ namespace StarWars
 
     public class HttpRequestHandler
     {
-        private List<string> _apiProperties = new List<string>();
+        private List<string> _listValues = new List<string>();
 
         public async void GetRestItems2(List<string> listItems, string property)
         {
@@ -67,18 +67,18 @@ namespace StarWars
                     if (response.IsSuccessStatusCode)
                     {
                         string json = await response.Content.ReadAsStringAsync();
-                        string apiProperty = JObject.Parse(json).SelectToken(property).ToString().Trim();
+                        string value = JObject.Parse(json).SelectToken(property).ToString().Trim();
 
-                        if (apiProperty.Contains("http"))
+                        if (value.Contains("http"))
                         {
                             char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
-                            string url = apiProperty.TrimStart(c).TrimEnd(c);
+                            string url = value.TrimStart(c).TrimEnd(c);
                             await GetRestItems2Task(new List<string>() { url }, "name");
                         }
-                        else if (!string.IsNullOrEmpty(apiProperty) && !string.Equals(apiProperty, "[]") && !_apiProperties.Contains(apiProperty))
+                        else if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]") && !_listValues.Contains(value))
                         {
-                            Console.WriteLine(apiProperty);
-                            _apiProperties.Add(apiProperty);
+                            Console.WriteLine(value);
+                            _listValues.Add(value);
                         }
 
                     }
