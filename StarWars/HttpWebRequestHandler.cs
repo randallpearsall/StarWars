@@ -39,11 +39,11 @@ namespace StarWars
     {
         private List<string> _apiProperties = new List<string>();
 
-        public async void GetRestItems2(List<string> lists, string property)
+        public async void GetRestItems2(List<string> listItems, string property)
         {
             try
             {
-                await GetRestItems2Task(lists, property);
+                await GetRestItems2Task(listItems, property);
             }
             catch (Exception ex)
             {
@@ -56,11 +56,11 @@ namespace StarWars
             }
         }
 
-        public async Task GetRestItems2Task(List<string> lists, string property)
+        public async Task GetRestItems2Task(List<string> listItems, string property)
         {
             using (var httpClient = new HttpClient())
             {
-                foreach (string item in lists)
+                foreach (string item in listItems)
                 {
                     HttpResponseMessage response = await httpClient.GetAsync(item);
 
