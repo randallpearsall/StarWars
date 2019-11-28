@@ -1,10 +1,12 @@
 ﻿using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace StarWars
 {
@@ -12,14 +14,43 @@ namespace StarWars
     {
         static void Main(string[] Args)
         {
-            Console.WriteLine("\r\nRun asynchronously?: N/<Y>");
-            string a = Console.ReadLine();
+            var runTypes = new List<string>() { "Synchronous", "Threaded", "ThreadPool", "Tasks" };
+            List<string> times = new List<string>();
+            Stopwatch stopwatch = new Stopwatch();
             Console.Clear();
 
-            if (a == "y" || a == "Y" || a == "")
-                Process2.Main2(Args);
-            else if (a == "n" || a == "N")
-                Process1.Main1(Args);
+            stopwatch.Start();
+            Process1.Main1(Args);
+            stopwatch.Stop();
+            times.Add(runTypes[0] + ":" + stopwatch.ElapsedMilliseconds.ToString());
+            Console.Clear();
+
+            stopwatch.Restart();
+            Process2.Main2(Args);
+            stopwatch.Stop();
+            times.Add(runTypes[1] + ":" + stopwatch.ElapsedMilliseconds.ToString());
+            Console.Clear();
+
+            stopwatch.Restart();
+            Process3.Main3(Args);
+            stopwatch.Stop();
+            times.Add(runTypes[2] + ":" + stopwatch.ElapsedMilliseconds.ToString());
+            Console.Clear();
+
+            stopwatch.Restart();
+            Process4.Main4(Args);
+            stopwatch.Stop();
+            times.Add(runTypes[3] + ":" + stopwatch.ElapsedMilliseconds.ToString());
+            Console.Clear();
+
+            string message = string.Join("\r\n", times);
+            Console.WriteLine(message);
+
+#if DEBUG
+            Console.WriteLine();
+            Console.WriteLine("Press <enter> to continue");
+            Console.ReadLine();
+#endif
         }
 
     }
@@ -30,6 +61,8 @@ namespace StarWars
         {
             try
             {
+                Console.WriteLine("Running normal synchronous requests...\r\n");
+
                 string title = Args[0];
                 string item = Args[1];
                 string property = Args[2];
@@ -58,7 +91,7 @@ namespace StarWars
 
                     if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]") && !listItems.Contains(value))
                     {
-                        Console.WriteLine(value);
+                        Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
                         listValues.Add(value);
                     }
 
@@ -78,11 +111,6 @@ namespace StarWars
                 Console.WriteLine(ex.Message);
             }
 
-#if DEBUG
-            Console.WriteLine();
-            Console.WriteLine("Press <enter> to continue");
-            Console.ReadLine();
-#endif
         }
 
         private static string GetItems(IRequestHandler requestHandler, string url)
@@ -94,29 +122,48 @@ namespace StarWars
 
     static class Process2
     {
-        private static List<string> _listItems2;
         private static string _property;
+        private static List<string> _values;
 
         public static void Main2(string[] Args)
         {
             try
             {
+                Console.WriteLine("Running threaded requests...\r\n");
+
                 string title = Args[0];
                 string item = Args[1];
                 _property = Args[2];
+                _values = new List<string>();
                 string url = "https://swapi.co/api/films/?search=" + title;
-                IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
-                string response = GetItems(httpWebRequestHandler, url);
+                IRequestHandler handler = new HttpWebRequestHandler();
+                string response = GetItems(handler, url);
                 JToken tokenFilm = JObject.Parse(response).SelectToken("results")[0];
 
                 char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
                 string items = tokenFilm[item].ToString().TrimStart(c).TrimEnd(c);
                 string[] s = new string[] { "\",\r\n  \"" };
-                _listItems2 = items.Split(s, StringSplitOptions.None).ToList();
+                var urls = items.Split(s, StringSplitOptions.None).ToList();
 
-                Thread thread2 = new Thread(GetItems2) { Name = "Thread2" };
-                thread2.Start();
-                thread2.Join();
+                List<Thread> threads = new List<Thread>();
+                int count = urls.Count;
+
+                for (int i = 0; i < count; i++)
+                {
+                    url = urls[i];
+                    ThreadWork threadWork = new ThreadWork(url);
+                    Thread thread = new Thread(new ThreadStart(threadWork.DoWork));
+                    threads.Add(thread);
+                    thread.Start();
+                    Thread.Sleep(10);
+                }
+
+                for (int i = 0; i < threads.Count; i++)
+                {
+                    Thread thread = threads[i];
+                    thread.Join();
+                }
+
             }
             catch (WebException ex)
             {
@@ -135,18 +182,190 @@ namespace StarWars
                 Console.WriteLine(message);
             }
 
-            Console.ReadLine();
         }
 
-        private static string GetItems(IRequestHandler handler, string url)
+        private static string GetItems(IRequestHandler requestHandler, string url)
         {
-            return handler.GetRestItems(url);
+            return requestHandler.GetRestItems(url);
         }
 
-        private static void GetItems2()
+        private sealed class ThreadWork
         {
-            HttpRequestHandler handler2 = new HttpRequestHandler();
-            handler2.GetRestItems2(_listItems2, _property);
+            private readonly string _url;
+
+            public ThreadWork(string url)
+            {
+                _url = url;
+            }
+
+            public void DoWork()
+            {
+                IRequestHandler requestHandler = new HttpWebRequestHandler();
+                string response = GetItems(requestHandler, _url);
+                string value = JObject.Parse(response)[_property].ToString();
+                Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
+                if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]")) { _values.Add(value); }
+            }
+
+            private string GetItems(IRequestHandler requestHandler, string url)
+            {
+                return requestHandler.GetRestItems(url);
+            }
+
+        }
+
+    }
+
+    static class Process3
+    {
+        private static List<string> _values;
+
+        public static void Main3(string[] Args)
+        {
+            try
+            {
+                Console.WriteLine("Running ThreadPool requests...\r\n");
+
+                string title = Args[0];
+                string item = Args[1];
+                string property = Args[2];
+                _values = new List<string>();
+                string url = "https://swapi.co/api/films/?search=" + title;
+                IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
+                string response = GetItems(httpWebRequestHandler, url);
+                JToken tokenFilm = JObject.Parse(response).SelectToken("results")[0];
+
+                char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
+                string items = tokenFilm[item].ToString().TrimStart(c).TrimEnd(c);
+                string[] s = new string[] { "\",\r\n  \"" };
+                List<string> listItems = items.Split(s, StringSplitOptions.None).ToList();
+
+                var doneEvents = new ManualResetEvent[listItems.Count];
+                //var threadPoolWork = new ThreadPoolWork[listItems.Count];
+                ThreadPool.SetMinThreads(1, 1);
+
+                for (int i = 0; i < listItems.Count; i++)
+                {
+                    doneEvents[i] = new ManualResetEvent(false);
+                    var tpw = new ThreadPoolWork(property, doneEvents[i]);
+                    //threadPoolWork[i] = tpw;
+                    ThreadPool.QueueUserWorkItem(tpw.ThreadPoolCallBack, listItems[i]);
+                    Thread.Sleep(10);
+                }
+
+                WaitHandle.WaitAll(doneEvents);
+            }
+            catch (WebException ex)
+            {
+                string path = Path.GetTempPath();
+                string file = "Error.log";
+                string message = DateTime.Now + " " + ex.Message + "\r\n";
+                File.AppendAllText(Path.Combine(path, file), message);
+                Console.WriteLine(message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+
+        }
+
+        public static string GetItems(IRequestHandler requestHandler, string url)
+        {
+            return requestHandler.GetRestItems(url);
+        }
+
+        private sealed class ThreadPoolWork
+        {
+            private readonly string _property;
+            private readonly ManualResetEvent _doneEvent;
+
+            public ThreadPoolWork(string property, ManualResetEvent doneEvent)
+            {
+                _property = property;
+                _doneEvent = doneEvent;
+            }
+
+            public void ThreadPoolCallBack(object threadContext)
+            {
+                string url = (string)threadContext;
+                IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
+                string response = GetItems(httpWebRequestHandler, url);
+                string value = JObject.Parse(response)[_property].ToString();
+
+                Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
+                if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]")) { _values.Add(value); }
+                _doneEvent.Set();
+            }
+
+            private string GetItems(IRequestHandler requestHandler, string url)
+            {
+                return requestHandler.GetRestItems(url);
+            }
+
+        }
+
+    }
+
+    static class Process4
+    {
+        public static void Main4(string[] Args)
+        {
+            try
+            {
+                Console.WriteLine("Running Task requests...\r\n");
+
+                string title = Args[0];
+                string item = Args[1];
+                string property = Args[2];
+                string url = "https://swapi.co/api/films/?search=" + title;
+                IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
+                string response = GetItems(httpWebRequestHandler, url);
+                JToken tokenFilm = JObject.Parse(response).SelectToken("results")[0];
+
+                char[] c = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
+                string items = tokenFilm[item].ToString().TrimStart(c).TrimEnd(c);
+                string[] s = new string[] { "\",\r\n  \"" };
+                List<string> urls = items.Split(s, StringSplitOptions.None).ToList();
+                List<string> listValues = new List<string>();
+
+                var doneEvents = new ManualResetEvent[urls.Count];
+
+                int length = urls.Count;
+
+                for (int i = 0; i < length; i++)
+                {
+                    url = urls[i];
+
+                    if (!string.IsNullOrEmpty(url))
+                    {
+                        Task<string> runningTask = Task<string>.Factory.StartNew(() => GetItems(httpWebRequestHandler, url));
+                        string Response = runningTask.Result;
+                        string value = JObject.Parse(Response)[property].ToString();
+                        Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
+                    }
+
+                }
+
+            }
+            catch (WebException ex)
+            {
+                string path = Path.GetTempPath();
+                string file = "Error.log";
+                string message = DateTime.Now + " " + ex.Message + "\r\n";
+                File.AppendAllText(Path.Combine(path, file), message);
+                Console.WriteLine(message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+
+        }
+
+        private static string GetItems(IRequestHandler requestHandler, string url)
+        {
+            return requestHandler.GetRestItems(url);
         }
 
     }
@@ -154,6 +373,49 @@ namespace StarWars
 }
 
 #region Unused
+
+#region OldMain
+
+/*
+
+static void Main(string[] Args)
+{
+    const string prefix = "Star Wars Rest API (HttpWebRequestHandler) run-type option:\r\n";
+    const string suffix = "\r\nPlease type an option number: ";
+    var runTypes = new List<string>() { "Synchronous", "Thread", "ThreadPool", "Task" };
+    var options = string.Join("\r\n", runTypes.Select(x => runTypes.IndexOf(x) + 1 + ". " + x).ToList());
+    string message = string.Join("\r\n", prefix, options, suffix);
+
+    Console.Write(message);
+    string a = Console.ReadLine();
+    int.TryParse(a, out int n);
+    Console.Clear();
+
+    switch (n)
+    {
+        case 1:
+            Process1.Main1(Args);
+            break;
+        case 2:
+            Process2.Main2(Args);
+            break;
+        case 3:
+            Process3.Main3(Args);
+            break;
+        case 4:
+            Process4.Main4(Args);
+            break;
+    }
+
+#if DEBUG
+    Console.WriteLine();
+    Console.WriteLine("Press <enter> to continue");
+    Console.ReadLine();
+#endif
+}
+
+*/
+#endregion
 
 #region IRequestHandler
 /*
@@ -501,6 +763,43 @@ public static class RequestConstants
     //public const string Url = "http://swapi.co/?api_key=123";
     public const string UserAgent = "User-Agent";
     public const string UserAgentValue = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36";
+}
+*/
+
+#endregion
+
+#region ThreadPool
+
+/*
+public class ThreadPoolExample
+{
+    static void Main()
+    {
+        const int FibonacciCalculations = 5;
+
+        var doneEvents = new ManualResetEvent[FibonacciCalculations];
+        var fibArray = new Fibonacci[FibonacciCalculations];
+        var rand = new Random();
+
+        Console.WriteLine($"Launching {FibonacciCalculations} tasks...");
+
+        for (int i = 0; i < FibonacciCalculations; i++)
+        {
+            doneEvents[i] = new ManualResetEvent(false);
+            var f = new Fibonacci(rand.Next(20, 40), doneEvents[i]);
+            fibArray[i] = f;
+            ThreadPool.QueueUserWorkItem(f.ThreadPoolCallback, i);
+        }
+
+        WaitHandle.WaitAll(doneEvents);
+        Console.WriteLine("All calculations are complete.");
+
+        for (int i = 0; i < FibonacciCalculations; i++)
+        {
+            Fibonacci f = fibArray[i];
+            Console.WriteLine($"Fibonacci({f.N}) = {f.Response}");
+        }
+    }
 }
 */
 
