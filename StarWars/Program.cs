@@ -8,6 +8,8 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
+// STARWARS "The Phantom Menace" characters name
+
 namespace StarWars
 {
     static class Program
@@ -19,24 +21,28 @@ namespace StarWars
             Stopwatch stopwatch = new Stopwatch();
             Console.Clear();
 
+            Console.WriteLine(string.Join(" ", "Running", runTypes[0], "requests...\r\n"));
             stopwatch.Start();
             Process1.Main1(Args);
             stopwatch.Stop();
             times.Add(runTypes[0] + ":" + stopwatch.ElapsedMilliseconds.ToString());
             Console.Clear();
 
+            Console.WriteLine(string.Join(" ", "Running", runTypes[1], "requests...\r\n"));
             stopwatch.Restart();
             Process2.Main2(Args);
             stopwatch.Stop();
             times.Add(runTypes[1] + ":" + stopwatch.ElapsedMilliseconds.ToString());
             Console.Clear();
 
+            Console.WriteLine(string.Join(" ", "Running", runTypes[2], "requests...\r\n"));
             stopwatch.Restart();
             Process3.Main3(Args);
             stopwatch.Stop();
             times.Add(runTypes[2] + ":" + stopwatch.ElapsedMilliseconds.ToString());
             Console.Clear();
 
+            Console.WriteLine(string.Join(" ", "Running", runTypes[3], "requests...\r\n"));
             stopwatch.Restart();
             Process4.Main4(Args);
             stopwatch.Stop();
@@ -47,8 +53,7 @@ namespace StarWars
             Console.WriteLine(message);
 
 #if DEBUG
-            Console.WriteLine();
-            Console.WriteLine("Press <enter> to continue");
+            Console.Write("\r\nPress <enter> to continue: ");
             Console.ReadLine();
 #endif
         }
@@ -61,8 +66,6 @@ namespace StarWars
         {
             try
             {
-                Console.WriteLine("Running normal synchronous requests...\r\n");
-
                 string title = Args[0];
                 string item = Args[1];
                 string property = Args[2];
@@ -129,8 +132,6 @@ namespace StarWars
         {
             try
             {
-                Console.WriteLine("Running threaded requests...\r\n");
-
                 string title = Args[0];
                 string item = Args[1];
                 _property = Args[2];
@@ -224,8 +225,6 @@ namespace StarWars
         {
             try
             {
-                Console.WriteLine("Running ThreadPool requests...\r\n");
-
                 string title = Args[0];
                 string item = Args[1];
                 string property = Args[2];
@@ -313,8 +312,6 @@ namespace StarWars
         {
             try
             {
-                Console.WriteLine("Running Task requests...\r\n");
-
                 string title = Args[0];
                 string item = Args[1];
                 string property = Args[2];
