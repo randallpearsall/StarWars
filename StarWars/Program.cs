@@ -47,7 +47,8 @@ namespace StarWars
             Process4.Main4(Args);
             stopwatch.Stop();
             times.Add(runTypes[3] + ":" + stopwatch.ElapsedMilliseconds.ToString());
-            Console.Clear();
+            Console.WriteLine();
+            //Console.Clear();
 
             string message = string.Join("\r\n", times);
             Console.WriteLine(message);
