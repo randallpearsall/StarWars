@@ -49,18 +49,32 @@ namespace StarWars
 
     public class ProcessDriver
     {
-        public ProcessBase ProcessX;
         public List<string> Times;
         public ProcessDriver() { Times = new List<string>(); }
 
         public void SetObject(ProcessBase processX)
         {
-            ProcessX = processX;
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
-            ProcessX.Main();
-            stopwatch.Stop();
-            Times.Add(ProcessX.ProcessName + ": " + stopwatch.ElapsedMilliseconds.ToString());
+            try
+            {
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
+                processX.Main();
+                stopwatch.Stop();
+                Times.Add(processX.ProcessName + ": " + stopwatch.ElapsedMilliseconds.ToString());
+            }
+            catch (WebException ex)
+            {
+                string path = Path.GetTempPath();
+                string file = "Error.log";
+                string message = DateTime.Now + " " + ex.Message + "\r\n";
+                File.AppendAllText(Path.Combine(path, file), message);
+                Console.WriteLine(message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+
         }
 
     }
@@ -81,8 +95,9 @@ namespace StarWars
 
         public void DisplayProcess()
         {
+            string message = string.Join(" ", "Running", ProcessName, "requests...\r\n");
             Console.Clear();
-            Console.WriteLine(string.Join(" ", "Running", ProcessName, "requests...\r\n"));
+            Console.WriteLine(message);
         }
 
         public List<string> GetRestItemsFilm()
@@ -117,44 +132,28 @@ namespace StarWars
 
         public override void Main()
         {
-            try
+            ProcessName = "Synchronous";
+            DisplayProcess();
+            var filmItems = GetRestItemsFilm();
+            var listValues = new List<string>();
+
+            for (int i = 0; i < filmItems.Count; i++)
             {
-                ProcessName = "Synchronous";
-                DisplayProcess();
-                List<string> filmItems = GetRestItemsFilm();
-                List<string> listValues = new List<string>();
+                string value = GetRestItem(filmItems[i], Property);
 
-                for (int j = 0; j < filmItems.Count; j++)
+                if (value.Contains("http"))
                 {
-                    string value = GetRestItem(filmItems[j], Property);
-
-                    if (value.Contains("http"))
-                    {
-                        char[] chars = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
-                        string url = value.TrimStart(chars).TrimEnd(chars);
-                        value = GetRestItem(url, "name");
-                    }
-
-                    if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]") && !filmItems.Contains(value))
-                    {
-                        Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
-                        listValues.Add(value);
-                    }
-
+                    char[] chars = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
+                    string url = value.TrimStart(chars).TrimEnd(chars);
+                    value = GetRestItem(url, "name");
                 }
 
-            }
-            catch (WebException ex)
-            {
-                string path = Path.GetTempPath();
-                string file = "Error.log";
-                string message = DateTime.Now + " " + ex.Message + "\r\n";
-                File.AppendAllText(Path.Combine(path, file), message);
-                Console.WriteLine(message);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
+                if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]") && !filmItems.Contains(value))
+                {
+                    Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
+                    listValues.Add(value);
+                }
+
             }
 
         }
@@ -169,47 +168,27 @@ namespace StarWars
 
         public override void Main()
         {
-            try
+            _property = Property;
+            _values = new List<string>();
+            ProcessName = "Threaded";
+            DisplayProcess();
+            var filmItems = GetRestItemsFilm();
+            var threads = new List<Thread>();
+
+            for (int i = 0; i < filmItems.Count; i++)
             {
-                _property = Property;
-                _values = new List<string>();
-                ProcessName = "Threaded";
-                DisplayProcess();
-                var filmItems = GetRestItemsFilm();
-                var threads = new List<Thread>();
-
-                for (int i = 0; i < filmItems.Count; i++)
-                {
-                    string url = filmItems[i];
-                    ThreadWork threadWork = new ThreadWork(url);
-                    Thread thread = new Thread(new ThreadStart(threadWork.DoWork));
-                    threads.Add(thread);
-                    thread.Start();
-                    Thread.Sleep(10);
-                }
-
-                for (int i = 0; i < threads.Count; i++)
-                {
-                    Thread thread = threads[i];
-                    thread.Join();
-                }
-
+                string url = filmItems[i];
+                ThreadWork threadWork = new ThreadWork(url);
+                Thread thread = new Thread(new ThreadStart(threadWork.DoWork));
+                threads.Add(thread);
+                thread.Start();
+                Thread.Sleep(10);
             }
-            catch (WebException ex)
+
+            for (int i = 0; i < threads.Count; i++)
             {
-                string path = Path.GetTempPath();
-                string file = "Error.log";
-                string message = DateTime.Now + " " + ex.Message + "\r\n";
-                File.AppendAllText(Path.Combine(path, file), message);
-                message += "\r\nPress <enter> to continue";
-                Console.WriteLine(message);
-            }
-            catch (Exception ex)
-            {
-                string message = ex.Message + "\r\n" +
-                    "Did you spell the parameters correctly?\r\n\r\n" +
-                    "Press <enter> to continue";
-                Console.WriteLine(message);
+                Thread thread = threads[i];
+                thread.Join();
             }
 
         }
@@ -248,38 +227,22 @@ namespace StarWars
 
         public override void Main()
         {
-            try
-            {
-                ProcessName = "ThreadPool";
-                _values = new List<string>();
-                DisplayProcess();
-                var filmItems = GetRestItemsFilm();
-                var doneEvents = new ManualResetEvent[filmItems.Count];
-                ThreadPool.SetMinThreads(1, 1);
+            ProcessName = "ThreadPool";
+            _values = new List<string>();
+            DisplayProcess();
+            var filmItems = GetRestItemsFilm();
+            var doneEvents = new ManualResetEvent[filmItems.Count];
+            ThreadPool.SetMinThreads(1, 1);
 
-                for (int i = 0; i < filmItems.Count; i++)
-                {
-                    doneEvents[i] = new ManualResetEvent(false);
-                    var tpw = new ThreadPoolWork(Property, doneEvents[i]);
-                    ThreadPool.QueueUserWorkItem(tpw.ThreadPoolCallBack, filmItems[i]);
-                    Thread.Sleep(10);
-                }
-
-                WaitHandle.WaitAll(doneEvents);
-            }
-            catch (WebException ex)
+            for (int i = 0; i < filmItems.Count; i++)
             {
-                string path = Path.GetTempPath();
-                string file = "Error.log";
-                string message = DateTime.Now + " " + ex.Message + "\r\n";
-                File.AppendAllText(Path.Combine(path, file), message);
-                Console.WriteLine(message);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
+                doneEvents[i] = new ManualResetEvent(false);
+                var tpw = new ThreadPoolWork(Property, doneEvents[i]);
+                ThreadPool.QueueUserWorkItem(tpw.ThreadPoolCallBack, filmItems[i]);
+                Thread.Sleep(10);
             }
 
+            WaitHandle.WaitAll(doneEvents);
         }
 
         private sealed class ThreadPoolWork
@@ -320,40 +283,24 @@ namespace StarWars
 
         public override void Main()
         {
-            try
+            ProcessName = "Tasks";
+            DisplayProcess();
+            var filmItems = GetRestItemsFilm();
+            var doneEvents = new ManualResetEvent[filmItems.Count];
+            IRequestHandler requestHandler = new HttpWebRequestHandler();
+
+            for (int i = 0; i < filmItems.Count; i++)
             {
-                ProcessName = "Tasks";
-                DisplayProcess();
-                var filmItems = GetRestItemsFilm();
-                var doneEvents = new ManualResetEvent[filmItems.Count];
-                IRequestHandler requestHandler = new HttpWebRequestHandler();
+                string url = filmItems[i];
 
-                for (int i = 0; i < filmItems.Count; i++)
+                if (!string.IsNullOrEmpty(url))
                 {
-                    string url = filmItems[i];
-
-                    if (!string.IsNullOrEmpty(url))
-                    {
-                        Task<string> runningTask = Task<string>.Factory.StartNew(() => requestHandler.GetRestItems(url));
-                        string Response = runningTask.Result;
-                        string value = JObject.Parse(Response)[Property].ToString();
-                        Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
-                    }
-
+                    Task<string> runningTask = Task<string>.Factory.StartNew(() => requestHandler.GetRestItems(url));
+                    string Response = runningTask.Result;
+                    string value = JObject.Parse(Response)[Property].ToString();
+                    Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
                 }
 
-            }
-            catch (WebException ex)
-            {
-                string path = Path.GetTempPath();
-                string file = "Error.log";
-                string message = DateTime.Now + " " + ex.Message + "\r\n";
-                File.AppendAllText(Path.Combine(path, file), message);
-                Console.WriteLine(message);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
             }
 
         }
