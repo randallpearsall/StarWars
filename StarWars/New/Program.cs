@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,6 +17,9 @@ namespace StarWars
 
     static class Program
     {
+        public static void Test()
+        { }
+
         static void Main(string[] args)
         {
             ProcessDriver processDriver = new ProcessDriver();
@@ -64,10 +68,9 @@ namespace StarWars
             }
             catch (WebException ex)
             {
-                string path = Path.GetTempPath();
-                string file = "Error.log";
+                string pathFile = Path.Combine(Path.GetTempPath(), "Error.log");
                 string message = DateTime.Now + " " + ex.Message + "\r\n";
-                File.AppendAllText(Path.Combine(path, file), message);
+                File.AppendAllText(pathFile, message);
                 Console.WriteLine(message);
             }
             catch (Exception ex)
@@ -90,7 +93,10 @@ namespace StarWars
         {
             Title = Args[0];
             Item = Args[1];
-            Property = Args[2];
+            //Property = Args[2];
+            string property = Args[2];
+            FormatProperty(ref property);
+            Property = property;
         }
 
         public void DisplayProcess()
@@ -107,19 +113,55 @@ namespace StarWars
             string url = "https://swapi.co/api/films/?search=" + Title;
             IRequestHandler requestHandler = new HttpWebRequestHandler();
             string response = requestHandler.GetRestItems(url);
-            JToken TokenFilm = JObject.Parse(response).SelectToken("results")[0];
-            string filmItems = TokenFilm[Item].ToString().TrimStart(chars).TrimEnd(chars);
+            JToken tokenFilm = JObject.Parse(response).SelectToken("results")[0];
+            string filmItems = tokenFilm[Item].ToString().TrimStart(chars).TrimEnd(chars);
             return filmItems.Split(s, StringSplitOptions.None).ToList();
         }
 
-        public string GetRestItem(string url)
-        {
-            IRequestHandler requestHandler = new HttpWebRequestHandler();
-            string response = requestHandler.GetRestItems(url);
-            return JObject.Parse(response)[Property].ToString().Trim();
-        }
+        //public string GetRestItem(string url)
+        //{
+        //    IRequestHandler requestHandler = new HttpWebRequestHandler();
+        //    string response = requestHandler.GetRestItems(url);
+
+        //    switch (Item.ToLower())
+        //    {
+        //        case "characters":
+        //            Character character = JsonConvert.DeserializeObject<Character>(JObject.Parse(response).ToString());
+        //            return character.GetType().GetProperty(Property).GetValue(character).ToString();
+        //        case "planets":
+        //            Starship starship = JsonConvert.DeserializeObject<Starship>(JObject.Parse(response).ToString());
+        //            return starship.GetType().GetProperty(Property).GetValue(starship).ToString();
+        //        case "starships":
+        //            Planet planet = JsonConvert.DeserializeObject<Planet>(JObject.Parse(response).ToString());
+        //            return planet.GetType().GetProperty(Property).GetValue(planet).ToString();
+        //        default:
+        //            return null;
+        //    }
+
+        //}
+
+        //public string GetRestItem(string url, string property)
+        //{
+        //    IRequestHandler requestHandler = new HttpWebRequestHandler();
+        //    string response = requestHandler.GetRestItems(url);
+        //    return JObject.Parse(response)[property].ToString().Trim();
+        //}
 
         public virtual void Main() { }
+
+        private void FormatProperty(ref string s)
+        {
+            int i = s.IndexOf("_");
+
+            while (i > -1)
+            {
+                s = s.Substring(0, i) + s.Substring(i + 1, 1).ToUpper() + s.Substring(i + 2);
+                i = s.IndexOf("_");
+            }
+
+            s = s.Substring(0, 1).ToUpper() + s.Substring(1);
+        }
+
     }
 
     #endregion
@@ -136,16 +178,18 @@ namespace StarWars
             DisplayProcess();
             var filmItems = GetRestItemsFilm();
             var listValues = new List<string>();
+            var requestHandler = new HttpWebRequestHandler();
 
             for (int i = 0; i < filmItems.Count; i++)
             {
-                string value = GetRestItem(filmItems[i]);
+                string url = filmItems[i];
+                string value = requestHandler.GetRestItem(url, Item, Property);
 
                 if (value.Contains("http"))
                 {
                     char[] chars = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
-                    string url = value.TrimStart(chars).TrimEnd(chars);
-                    value = GetRestItem(url);
+                    url = value.TrimStart(chars).TrimEnd(chars);
+                    value = requestHandler.GetRestItem(url, Item, Property);
                 }
 
                 if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]") && !filmItems.Contains(value))
@@ -163,12 +207,12 @@ namespace StarWars
     public class Process2 : ProcessBase
     {
         public Process2(string[] Args) : base(Args) { }
-        private static string _property;
+        //private static string _property;
         private static List<string> _values;
 
         public override void Main()
         {
-            _property = Property;
+            //_property = Property;
             _values = new List<string>();
             ProcessName = "Threaded";
             DisplayProcess();
@@ -178,7 +222,7 @@ namespace StarWars
             for (int i = 0; i < filmItems.Count; i++)
             {
                 string url = filmItems[i];
-                ThreadWork threadWork = new ThreadWork(url);
+                ThreadWork threadWork = new ThreadWork(url, Item, Property);
                 Thread thread = new Thread(new ThreadStart(threadWork.DoWork));
                 threads.Add(thread);
                 thread.Start();
@@ -196,24 +240,22 @@ namespace StarWars
         private sealed class ThreadWork
         {
             private readonly string _url;
+            private readonly string _item;
+            private readonly string _property;
 
-            public ThreadWork(string url)
+            public ThreadWork(string url, string item, string property)
             {
                 _url = url;
+                _item = item;
+                _property = property;
             }
 
             public void DoWork()
             {
                 IRequestHandler requestHandler = new HttpWebRequestHandler();
-                string response = GetItems(requestHandler, _url);
-                string value = JObject.Parse(response)[_property].ToString();
+                string value = requestHandler.GetRestItem(_url, _item, _property);
                 Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
                 if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]")) { _values.Add(value); }
-            }
-
-            private string GetItems(IRequestHandler requestHandler, string url)
-            {
-                return requestHandler.GetRestItems(url);
             }
 
         }
@@ -237,7 +279,7 @@ namespace StarWars
             for (int i = 0; i < filmItems.Count; i++)
             {
                 doneEvents[i] = new ManualResetEvent(false);
-                var tpw = new ThreadPoolWork(Property, doneEvents[i]);
+                var tpw = new ThreadPoolWork(doneEvents[i], Item, Property);
                 ThreadPool.QueueUserWorkItem(tpw.ThreadPoolCallBack, filmItems[i]);
                 Thread.Sleep(10);
             }
@@ -247,30 +289,25 @@ namespace StarWars
 
         private sealed class ThreadPoolWork
         {
-            private readonly string _property;
             private readonly ManualResetEvent _doneEvent;
+            private readonly string _item;
+            private readonly string _property;
 
-            public ThreadPoolWork(string property, ManualResetEvent doneEvent)
+            public ThreadPoolWork(ManualResetEvent doneEvent, string item, string property)
             {
-                _property = property;
                 _doneEvent = doneEvent;
+                _item = item;
+                _property = property;
             }
 
             public void ThreadPoolCallBack(object threadContext)
             {
                 string url = (string)threadContext;
                 IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
-                string response = httpWebRequestHandler.GetRestItems(url);
-                string value = JObject.Parse(response)[_property].ToString();
-
+                string value = httpWebRequestHandler.GetRestItem(url, _item, _property);
                 Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
                 if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]")) { _values.Add(value); }
                 _doneEvent.Set();
-            }
-
-            private string GetItems(IRequestHandler requestHandler, string url)
-            {
-                return requestHandler.GetRestItems(url);
             }
 
         }
@@ -286,6 +323,7 @@ namespace StarWars
             ProcessName = "Tasks";
             DisplayProcess();
             var filmItems = GetRestItemsFilm();
+            var doneEvents = new ManualResetEvent[filmItems.Count];
             IRequestHandler requestHandler = new HttpWebRequestHandler();
 
             for (int i = 0; i < filmItems.Count; i++)
@@ -294,8 +332,10 @@ namespace StarWars
 
                 if (!string.IsNullOrEmpty(url))
                 {
-                    Task<string> task = Task<string>.Factory.StartNew(() => GetRestItem(url));
-                    Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, task.Result);
+                    Task<string> runningTask = Task<string>.Factory.StartNew(() => requestHandler.GetRestItems(url));
+                    string response = runningTask.Result;
+                    string value = JObject.Parse(response)[Property].ToString();
+                    Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
                 }
 
             }

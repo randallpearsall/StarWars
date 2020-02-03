@@ -42,7 +42,7 @@ namespace StarWars
         [JsonProperty(PropertyName = "height")]
         public UInt16 Height { get; set; }
         [JsonProperty(PropertyName = "mass")]
-        public UInt16 Mass { get; set; }
+        public string Mass { get; set; }
         [JsonProperty(PropertyName = "hair_color")]
         public string HairColor { get; set; }
         [JsonProperty(PropertyName = "skin_color")]

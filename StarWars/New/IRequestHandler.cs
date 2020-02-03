@@ -6,10 +6,10 @@ namespace StarWars
     {
         string Title { get; }
         string Item { get; }
-        string Property { get; }
+        //string Property { get; }
         string ProcessName { get; set; }
         List<string> GetRestItemsFilm();
-        string GetRestItem(string url);
+        //string GetRestItem(string url, string property);
         void Main();
         void DisplayProcess();
     }
@@ -17,6 +17,7 @@ namespace StarWars
     public interface IRequestHandler
     {
         string GetRestItems(string url);
+        string GetRestItem(string url, string item, string property);
     }
 
 }
