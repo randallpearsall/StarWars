@@ -17,9 +17,6 @@ namespace StarWars
 
     static class Program
     {
-        public static void Test()
-        { }
-
         static void Main(string[] args)
         {
             ProcessDriver processDriver = new ProcessDriver();
@@ -30,11 +27,11 @@ namespace StarWars
             Process2 process2 = new Process2(args);
             processDriver.SetObject(process2);
 
-            Process3 process3 = new Process3(args);
-            processDriver.SetObject(process3);
+            //Process3 process3 = new Process3(args);
+            //processDriver.SetObject(process3);
 
-            Process4 process4 = new Process4(args);
-            processDriver.SetObject(process4);
+            //Process4 process4 = new Process4(args);
+            //processDriver.SetObject(process4);
 
             string message = "\r\n" + string.Join("\r\n", processDriver.Times);
             Console.WriteLine(message);
@@ -49,7 +46,7 @@ namespace StarWars
 
     #endregion
 
-    #region Driver and Base Class
+    #region Driver, Base and Worker Classes
 
     public class ProcessDriver
     {
@@ -68,9 +65,10 @@ namespace StarWars
             }
             catch (WebException ex)
             {
-                string pathFile = Path.Combine(Path.GetTempPath(), "Error.log");
+                string path = Path.GetTempPath();
+                string file = "Error.log";
                 string message = DateTime.Now + " " + ex.Message + "\r\n";
-                File.AppendAllText(pathFile, message);
+                File.AppendAllText(Path.Combine(path, file), message);
                 Console.WriteLine(message);
             }
             catch (Exception ex)
@@ -88,15 +86,16 @@ namespace StarWars
         public string Item { get; }
         public string Property { get; }
         public string ProcessName { get; set; }
+        public List<string> FilmItems { get; set; }
+        public ushort ItemCount { get; set; }
+        public ushort Pages { get; set; }
+        public const string Rooturl = "https://swapi.co/api/";
 
         public ProcessBase(string[] Args)
         {
             Title = Args[0];
             Item = Args[1];
-            //Property = Args[2];
-            string property = Args[2];
-            FormatProperty(ref property);
-            Property = property;
+            Property = Args[2];
         }
 
         public void DisplayProcess()
@@ -106,60 +105,74 @@ namespace StarWars
             Console.WriteLine(message);
         }
 
-        public List<string> GetRestItemsFilm()
+        public void GetFilmItems()
         {
             char[] chars = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
             string[] s = new string[] { "\",\r\n  \"" };
-            string url = "https://swapi.co/api/films/?search=" + Title;
-            IRequestHandler requestHandler = new HttpWebRequestHandler();
-            string response = requestHandler.GetRestItems(url);
-            JToken tokenFilm = JObject.Parse(response).SelectToken("results")[0];
-            string filmItems = tokenFilm[Item].ToString().TrimStart(chars).TrimEnd(chars);
-            return filmItems.Split(s, StringSplitOptions.None).ToList();
+            string url = Rooturl + "films/?search=" + Title;
+
+            string response = ClassHttp.GetRestItem(url);
+
+            //IRequestHandler requestHandler = new HttpWebRequestHandler();
+            //string response = requestHandler.GetRestItems(url);
+            JToken TokenFilm = JObject.Parse(response).SelectToken("results")[0];
+            string r = Rooturl + (string.Equals(Item.ToLower(), "characters") ? "people" : Item.ToLower());
+            string items = TokenFilm[Item].ToString().TrimStart(chars).TrimEnd(chars).Replace(r, null);
+            FilmItems = items.Split(s, StringSplitOptions.None).ToList().Select(x => x.Trim('/')).ToList();
         }
 
-        //public string GetRestItem(string url)
-        //{
-        //    IRequestHandler requestHandler = new HttpWebRequestHandler();
-        //    string response = requestHandler.GetRestItems(url);
+        public void SetItemCount()
+        {
+            string url = Rooturl + (string.Equals(Item.ToLower(), "characters") ? "people" : Item.ToLower());
+            //IRequestHandler requestHandler = new HttpWebRequestHandler();
+            //string response = requestHandler.GetRestItems(url);
 
-        //    switch (Item.ToLower())
-        //    {
-        //        case "characters":
-        //            Character character = JsonConvert.DeserializeObject<Character>(JObject.Parse(response).ToString());
-        //            return character.GetType().GetProperty(Property).GetValue(character).ToString();
-        //        case "planets":
-        //            Starship starship = JsonConvert.DeserializeObject<Starship>(JObject.Parse(response).ToString());
-        //            return starship.GetType().GetProperty(Property).GetValue(starship).ToString();
-        //        case "starships":
-        //            Planet planet = JsonConvert.DeserializeObject<Planet>(JObject.Parse(response).ToString());
-        //            return planet.GetType().GetProperty(Property).GetValue(planet).ToString();
-        //        default:
-        //            return null;
-        //    }
+            string response = ClassHttp.GetRestItem(url);
 
-        //}
 
-        //public string GetRestItem(string url, string property)
-        //{
-        //    IRequestHandler requestHandler = new HttpWebRequestHandler();
-        //    string response = requestHandler.GetRestItems(url);
-        //    return JObject.Parse(response)[property].ToString().Trim();
-        //}
+            ItemCount = Convert.ToUInt16(JObject.Parse(response).SelectToken("count"));
+            Pages = Convert.ToUInt16(Math.Ceiling(ItemCount / (double)10));
+        }
 
         public virtual void Main() { }
+    }
 
-        private void FormatProperty(ref string s)
+    public class ClassWorker : ProcessBase
+    {
+        public ushort PageX { get; set; }
+        private List<string> _filmItems;
+
+        public ClassWorker(string[] Args, List<string> filmItems, ushort pageX) : base(Args)
         {
-            int i = s.IndexOf("_");
+            PageX = pageX;
+            _filmItems = filmItems;
+        }
 
-            while (i > -1)
+        public void DoWork()
+        {
+            const string f = "Current thread: {0}, {1}";
+            string url = Rooturl + (string.Equals(Item.ToLower(), "characters") ? "people" : Item.ToLower()) + "?page=" + PageX;
+
+            var response = ClassHttp.GetRestItem(url);
+
+
+            //IRequestHandler requestHandler = new HttpWebRequestHandler();
+            //string response = requestHandler.GetRestItems(url);
+            JToken token = JObject.Parse(response).SelectToken("results");
+            string r = Rooturl + (string.Equals(Item.ToLower(), "characters") ? "people" : Item.ToLower());
+
+            for (int i = 0; i < token.Count(); i++)
             {
-                s = s.Substring(0, i) + s.Substring(i + 1, 1).ToUpper() + s.Substring(i + 2);
-                i = s.IndexOf("_");
+                string n = token[i]["url"].ToString().Replace(r, null).Trim('/');
+
+                if (_filmItems.Contains(n))
+                {
+                    string property = token[i][Property].ToString();
+                    Console.WriteLine(f, Thread.CurrentThread.ManagedThreadId, property);
+                }
+
             }
 
-            s = s.Substring(0, 1).ToUpper() + s.Substring(1);
         }
 
     }
@@ -170,60 +183,80 @@ namespace StarWars
 
     public class Process1 : ProcessBase
     {
-        public Process1(string[] Args) : base(Args) { }
+        public Process1(string[] Args) : base(Args) { _args = Args; }
+
+        private readonly string[] _args;
 
         public override void Main()
         {
             ProcessName = "Synchronous";
             DisplayProcess();
-            var filmItems = GetRestItemsFilm();
-            var listValues = new List<string>();
-            var requestHandler = new HttpWebRequestHandler();
+            GetFilmItems();
+            SetItemCount();
+            ClassWorker worker = new ClassWorker(_args, FilmItems, 0) { };
 
-            for (int i = 0; i < filmItems.Count; i++)
+            for (ushort i = 1; i <= Pages; i++)
             {
-                string url = filmItems[i];
-                string value = requestHandler.GetRestItem(url, Item, Property);
-
-                if (value.Contains("http"))
-                {
-                    char[] chars = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
-                    url = value.TrimStart(chars).TrimEnd(chars);
-                    value = requestHandler.GetRestItem(url, Item, Property);
-                }
-
-                if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]") && !filmItems.Contains(value))
-                {
-                    Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
-                    listValues.Add(value);
-                }
-
+                worker.PageX = i;
+                worker.DoWork();
             }
 
         }
 
     }
 
+    //public class Process1 : ProcessBase
+    //{
+    //    public Process1(string[] Args) : base(Args) { }
+
+    //    public override void Main()
+    //    {
+    //        ProcessName = "Synchronous";
+    //        DisplayProcess();
+    //        var filmItems = GetRestItemsFilm();
+    //        var listValues = new List<string>();
+
+    //        for (int i = 0; i < filmItems.Count; i++)
+    //        {
+    //            string value = GetRestItem(filmItems[i]);
+
+    //            if (value.Contains("http"))
+    //            {
+    //                char[] chars = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
+    //                string url = value.TrimStart(chars).TrimEnd(chars);
+    //                value = GetRestItem(url);
+    //            }
+
+    //            if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]") && !filmItems.Contains(value))
+    //            {
+    //                Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
+    //                listValues.Add(value);
+    //            }
+
+    //        }
+
+    //    }
+
+    //}
+
     public class Process2 : ProcessBase
     {
-        public Process2(string[] Args) : base(Args) { }
-        //private static string _property;
-        private static List<string> _values;
+        public Process2(string[] Args) : base(Args) { _args = Args; }
+
+        private readonly string[] _args;
 
         public override void Main()
         {
-            //_property = Property;
-            _values = new List<string>();
             ProcessName = "Threaded";
             DisplayProcess();
-            var filmItems = GetRestItemsFilm();
+            GetFilmItems();
+            SetItemCount();
             var threads = new List<Thread>();
 
-            for (int i = 0; i < filmItems.Count; i++)
+            for (ushort i = 1; i <= Pages; i++)
             {
-                string url = filmItems[i];
-                ThreadWork threadWork = new ThreadWork(url, Item, Property);
-                Thread thread = new Thread(new ThreadStart(threadWork.DoWork));
+                ClassWorker worker = new ClassWorker(_args, FilmItems, i) { };
+                Thread thread = new Thread(new ThreadStart(worker.DoWork));
                 threads.Add(thread);
                 thread.Start();
                 Thread.Sleep(10);
@@ -237,34 +270,38 @@ namespace StarWars
 
         }
 
-        private sealed class ThreadWork
-        {
-            private readonly string _url;
-            private readonly string _item;
-            private readonly string _property;
+        //private sealed class ThreadWork
+        //{
+        //    private readonly string _url;
 
-            public ThreadWork(string url, string item, string property)
-            {
-                _url = url;
-                _item = item;
-                _property = property;
-            }
+        //    public ThreadWork(string url)
+        //    {
+        //        _url = url;
+        //    }
 
-            public void DoWork()
-            {
-                IRequestHandler requestHandler = new HttpWebRequestHandler();
-                string value = requestHandler.GetRestItem(_url, _item, _property);
-                Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
-                if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]")) { _values.Add(value); }
-            }
+        //    public void DoWork()
+        //    {
+        //        IRequestHandler requestHandler = new HttpWebRequestHandler();
+        //        string response = GetItems(requestHandler, _url);
+        //        string value = JObject.Parse(response)[_property].ToString();
+        //        Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
+        //        if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]")) { _values.Add(value); }
+        //    }
 
-        }
+        //    private string GetItems(IRequestHandler requestHandler, string url)
+        //    {
+        //        return requestHandler.GetRestItems(url);
+        //    }
+
+        //}
 
     }
 
     public class Process3 : ProcessBase
     {
-        public Process3(string[] Args) : base(Args) { }
+        public Process3(string[] Args) : base(Args) { _args = Args; }
+
+        private readonly string[] _args;
         private static List<string> _values;
 
         public override void Main()
@@ -272,16 +309,27 @@ namespace StarWars
             ProcessName = "ThreadPool";
             _values = new List<string>();
             DisplayProcess();
-            var filmItems = GetRestItemsFilm();
-            var doneEvents = new ManualResetEvent[filmItems.Count];
+
+            GetFilmItems();
+            SetItemCount();
+
+
+            var doneEvents = new ManualResetEvent[FilmItems.Count];
             ThreadPool.SetMinThreads(1, 1);
 
-            for (int i = 0; i < filmItems.Count; i++)
+            for (ushort i = 1; i <= Pages; i++)
             {
                 doneEvents[i] = new ManualResetEvent(false);
-                var tpw = new ThreadPoolWork(doneEvents[i], Item, Property);
-                ThreadPool.QueueUserWorkItem(tpw.ThreadPoolCallBack, filmItems[i]);
+                var tpw = new ThreadPoolWork(Property, doneEvents[i]);
+                ThreadPool.QueueUserWorkItem(tpw.ThreadPoolCallBack, FilmItems[i]);
                 Thread.Sleep(10);
+
+
+                //ClassWorker worker = new ClassWorker(_args, FilmItems, i) { };
+                //Thread thread = new Thread(new ThreadStart(worker.DoWork));
+                //threads.Add(thread);
+                //thread.Start();
+                //Thread.Sleep(10);
             }
 
             WaitHandle.WaitAll(doneEvents);
@@ -289,30 +337,152 @@ namespace StarWars
 
         private sealed class ThreadPoolWork
         {
-            private readonly ManualResetEvent _doneEvent;
-            private readonly string _item;
             private readonly string _property;
+            private readonly ManualResetEvent _doneEvent;
 
-            public ThreadPoolWork(ManualResetEvent doneEvent, string item, string property)
+            public ThreadPoolWork(string property, ManualResetEvent doneEvent)
             {
-                _doneEvent = doneEvent;
-                _item = item;
                 _property = property;
+                _doneEvent = doneEvent;
             }
 
             public void ThreadPoolCallBack(object threadContext)
             {
                 string url = (string)threadContext;
                 IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
-                string value = httpWebRequestHandler.GetRestItem(url, _item, _property);
+                string response = httpWebRequestHandler.GetRestItems(url);
+                string value = JObject.Parse(response)[_property].ToString();
+
                 Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
                 if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]")) { _values.Add(value); }
                 _doneEvent.Set();
             }
 
+            private string GetItems(IRequestHandler requestHandler, string url)
+            {
+                return requestHandler.GetRestItems(url);
+            }
+
         }
 
     }
+
+    //public class Process2 : ProcessBase
+    //{
+    //    public Process2(string[] Args) : base(Args) { }
+    //    private static string _property;
+    //    private static List<string> _values;
+
+    //    public override void Main()
+    //    {
+    //        _property = Property;
+    //        _values = new List<string>();
+    //        ProcessName = "Threaded";
+    //        DisplayProcess();
+    //        var filmItems = GetRestFilm();
+    //        var threads = new List<Thread>();
+
+    //        for (int i = 0; i < filmItems.Count; i++)
+    //        {
+    //            string url = filmItems[i];
+    //            ThreadWork threadWork = new ThreadWork(url);
+    //            Thread thread = new Thread(new ThreadStart(threadWork.DoWork));
+    //            threads.Add(thread);
+    //            thread.Start();
+    //            Thread.Sleep(10);
+    //        }
+
+    //        for (int i = 0; i < threads.Count; i++)
+    //        {
+    //            Thread thread = threads[i];
+    //            thread.Join();
+    //        }
+
+    //    }
+
+    //    private sealed class ThreadWork
+    //    {
+    //        private readonly string _url;
+
+    //        public ThreadWork(string url)
+    //        {
+    //            _url = url;
+    //        }
+
+    //        public void DoWork()
+    //        {
+    //            IRequestHandler requestHandler = new HttpWebRequestHandler();
+    //            string response = GetItems(requestHandler, _url);
+    //            string value = JObject.Parse(response)[_property].ToString();
+    //            Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
+    //            if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]")) { _values.Add(value); }
+    //        }
+
+    //        private string GetItems(IRequestHandler requestHandler, string url)
+    //        {
+    //            return requestHandler.GetRestItems(url);
+    //        }
+
+    //    }
+
+    //}
+
+    //public class Process3 : ProcessBase
+    //{
+    //    public Process3(string[] Args) : base(Args) { }
+    //    private static List<string> _values;
+
+    //    public override void Main()
+    //    {
+    //        ProcessName = "ThreadPool";
+    //        _values = new List<string>();
+    //        DisplayProcess();
+    //        var filmItems = GetRestFilm();
+    //        var doneEvents = new ManualResetEvent[filmItems.Count];
+    //        ThreadPool.SetMinThreads(1, 1);
+
+    //        for (int i = 0; i < filmItems.Count; i++)
+    //        {
+    //            doneEvents[i] = new ManualResetEvent(false);
+    //            var tpw = new ThreadPoolWork(Property, doneEvents[i]);
+    //            ThreadPool.QueueUserWorkItem(tpw.ThreadPoolCallBack, filmItems[i]);
+    //            Thread.Sleep(10);
+    //        }
+
+    //        WaitHandle.WaitAll(doneEvents);
+    //    }
+
+    //    private sealed class ThreadPoolWork
+    //    {
+    //        private readonly string _property;
+    //        private readonly ManualResetEvent _doneEvent;
+
+    //        public ThreadPoolWork(string property, ManualResetEvent doneEvent)
+    //        {
+    //            _property = property;
+    //            _doneEvent = doneEvent;
+    //        }
+
+    //        public void ThreadPoolCallBack(object threadContext)
+    //        {
+    //            string url = (string)threadContext;
+    //            IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
+    //            string response = httpWebRequestHandler.GetRestItems(url);
+    //            string value = JObject.Parse(response)[_property].ToString();
+
+    //            Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
+    //            if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]")) { _values.Add(value); }
+    //            _doneEvent.Set();
+    //        }
+
+    //        private string GetItems(IRequestHandler requestHandler, string url)
+    //        {
+    //            return requestHandler.GetRestItems(url);
+    //        }
+
+    //    }
+
+    //}
 
     public class Process4 : ProcessBase
     {
@@ -322,28 +492,25 @@ namespace StarWars
         {
             ProcessName = "Tasks";
             DisplayProcess();
-            var filmItems = GetRestItemsFilm();
-            var doneEvents = new ManualResetEvent[filmItems.Count];
-            IRequestHandler requestHandler = new HttpWebRequestHandler();
+            //var filmItems = GetRestFilm();
+            //IRequestHandler requestHandler = new HttpWebRequestHandler();
 
-            for (int i = 0; i < filmItems.Count; i++)
-            {
-                string url = filmItems[i];
+            //for (int i = 0; i < filmItems.Count; i++)
+            //{
+            //    string url = filmItems[i];
 
-                if (!string.IsNullOrEmpty(url))
-                {
-                    Task<string> runningTask = Task<string>.Factory.StartNew(() => requestHandler.GetRestItems(url));
-                    string response = runningTask.Result;
-                    string value = JObject.Parse(response)[Property].ToString();
-                    Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
-                }
+            //    if (!string.IsNullOrEmpty(url))
+            //    {
+            //        Task<string> task = Task<string>.Factory.StartNew(() => GetRestItem(url));
+            //        Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, task.Result);
+            //    }
 
-            }
+            //}
 
         }
 
     }
 
     #endregion
-
 }
+

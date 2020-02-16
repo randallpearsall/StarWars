@@ -6,18 +6,19 @@ namespace StarWars
     {
         string Title { get; }
         string Item { get; }
-        //string Property { get; }
+        string Property { get; }
         string ProcessName { get; set; }
-        List<string> GetRestItemsFilm();
-        //string GetRestItem(string url, string property);
-        void Main();
+        List<string> FilmItems { get; set; }
+        ushort ItemCount { get; set; }
+        void GetFilmItems();
+        void SetItemCount();
         void DisplayProcess();
+        void Main();
     }
 
     public interface IRequestHandler
     {
         string GetRestItems(string url);
-        string GetRestItem(string url, string item, string property);
     }
 
 }

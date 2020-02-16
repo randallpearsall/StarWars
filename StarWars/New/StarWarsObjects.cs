@@ -3,7 +3,7 @@ using System;
 
 namespace StarWars
 {
-    class Film
+    public class Film
     {
         [JsonProperty(PropertyName = "title")]
         public string Title { get; set; }
@@ -35,14 +35,14 @@ namespace StarWars
         public string URL { get; set; }
     }
 
-    class Character
+    public class Character
     {
         [JsonProperty(PropertyName = "name")]
         public string Name { get; set; }
         [JsonProperty(PropertyName = "height")]
         public UInt16 Height { get; set; }
         [JsonProperty(PropertyName = "mass")]
-        public string Mass { get; set; }
+        public UInt16 Mass { get; set; }
         [JsonProperty(PropertyName = "hair_color")]
         public string HairColor { get; set; }
         [JsonProperty(PropertyName = "skin_color")]
@@ -71,7 +71,7 @@ namespace StarWars
         public string URL { get; set; }
     }
 
-    class Planet
+    public class Planet
     {
         [JsonProperty(PropertyName = "name")]
         public string Name { get; set; }
@@ -103,7 +103,7 @@ namespace StarWars
         public string URL { get; set; }
     }
 
-    class Starship
+    public class Starship
     {
         [JsonProperty(PropertyName = "name")]
         public string Name { get; set; }
