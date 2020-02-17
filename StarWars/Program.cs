@@ -286,20 +286,16 @@ namespace StarWars
             ProcessName = "Tasks";
             DisplayProcess();
             var filmItems = GetRestItemsFilm();
-            IRequestHandler requestHandler = new HttpWebRequestHandler();
+            Task[] tasks = new Task[filmItems.Count];
 
             for (int i = 0; i < filmItems.Count; i++)
             {
                 string url = filmItems[i];
-
-                if (!string.IsNullOrEmpty(url))
-                {
-                    Task<string> task = Task<string>.Factory.StartNew(() => GetRestItem(url));
-                    Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, task.Result);
-                }
-
+                Task task = ClassHttp.MyTaskRequest(url, Property);
+                tasks[i] = task;
             }
 
+            Task.WaitAll(tasks);
         }
 
     }
