@@ -4,9 +4,9 @@ namespace StarWars
 {
     public interface IProcess
     {
-        string Title { get; }
-        string Item { get; }
-        string Property { get; }
+        //string Title { get; }
+        //string Item { get; }
+        //string Property { get; }
         string ProcessName { get; set; }
         List<string> GetRestItemsFilm();
         string GetRestItem(string url);

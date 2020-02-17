@@ -16,24 +16,54 @@ namespace StarWars
 
     static class Program
     {
+        public static string Title { get; set; }
+        public static string Item { get; set; }
+        public static string Property { get; set; }
+
         static void Main(string[] args)
         {
-            ProcessDriver processDriver = new ProcessDriver();
+            try
+            {
+                Title = args[0];
+                Item = args[1];
+                Property = args[2];
 
-            Process1 process1 = new Process1(args);
-            processDriver.SetObject(process1);
+                ProcessDriver processDriver = new ProcessDriver();
 
-            Process2 process2 = new Process2(args);
-            processDriver.SetObject(process2);
+                Process1 process1 = new Process1();
+                processDriver.SetObject(process1);
 
-            Process3 process3 = new Process3(args);
-            processDriver.SetObject(process3);
+                Process2 process2 = new Process2();
+                processDriver.SetObject(process2);
 
-            Process4 process4 = new Process4(args);
-            processDriver.SetObject(process4);
+                Process3 process3 = new Process3();
+                processDriver.SetObject(process3);
 
-            string message = "\r\n" + string.Join("\r\n", processDriver.Times);
-            Console.WriteLine(message);
+                Process4 process4 = new Process4();
+                processDriver.SetObject(process4);
+
+                string message = "\r\n" + string.Join("\r\n", processDriver.Times);
+                Console.WriteLine(message);
+
+            }
+            catch (WebException ex)
+            {
+                string path = Path.GetTempPath();
+                string file = "Error.log";
+                string message = DateTime.Now + " " + ex.Message + "\r\n";
+                File.AppendAllText(Path.Combine(path, file), message);
+                Console.WriteLine(ex.Message);
+            }
+            catch (ApplicationException)
+            {
+                string message = "No values found for\r\n\r\n" +
+                "Parameter1: " + Title + "\r\nParameter2: " + Item + "\r\nParameter3: " + Property;
+                Console.WriteLine(message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
 
 #if DEBUG
             Console.Write("\r\nPress <enter> to continue: ");
@@ -54,44 +84,18 @@ namespace StarWars
 
         public void SetObject(ProcessBase processX)
         {
-            try
-            {
-                Stopwatch stopwatch = new Stopwatch();
-                stopwatch.Start();
-                processX.Main();
-                stopwatch.Stop();
-                Times.Add(processX.ProcessName + ": " + stopwatch.ElapsedMilliseconds.ToString());
-            }
-            catch (WebException ex)
-            {
-                string path = Path.GetTempPath();
-                string file = "Error.log";
-                string message = DateTime.Now + " " + ex.Message + "\r\n";
-                File.AppendAllText(Path.Combine(path, file), message);
-                Console.WriteLine(message);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            processX.Main();
+            stopwatch.Stop();
+            Times.Add(processX.ProcessName + ": " + stopwatch.ElapsedMilliseconds.ToString());
         }
 
     }
 
     public class ProcessBase : IProcess
     {
-        public string Title { get; }
-        public string Item { get; }
-        public string Property { get; }
         public string ProcessName { get; set; }
-
-        public ProcessBase(string[] Args)
-        {
-            Title = Args[0];
-            Item = Args[1];
-            Property = Args[2];
-        }
 
         public void DisplayProcess()
         {
@@ -104,19 +108,33 @@ namespace StarWars
         {
             char[] chars = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
             string[] s = new string[] { "\",\r\n  \"" };
-            string url = "https://swapi.co/api/films/?search=" + Title;
+            string url = "https://swapi.co/api/films/?search=" + Program.Title;
             IRequestHandler requestHandler = new HttpWebRequestHandler();
             string response = requestHandler.GetRestItems(url);
-            JToken TokenFilm = JObject.Parse(response).SelectToken("results")[0];
-            string filmItems = TokenFilm[Item].ToString().TrimStart(chars).TrimEnd(chars);
-            return filmItems.Split(s, StringSplitOptions.None).ToList();
+            JToken token = JObject.Parse(response).SelectToken("results");
+
+            if (token.HasValues && token[0][Program.Item] != null)
+            {
+                string filmItems = token[0][Program.Item].ToString().TrimStart(chars).TrimEnd(chars);
+                return filmItems.Split(s, StringSplitOptions.None).ToList();
+            }
+            else
+            {
+                throw new ApplicationException();
+            }
+
         }
 
         public string GetRestItem(string url)
         {
             IRequestHandler requestHandler = new HttpWebRequestHandler();
             string response = requestHandler.GetRestItems(url);
-            return JObject.Parse(response)[Property].ToString().Trim();
+
+            if (!string.IsNullOrEmpty(response) && JObject.Parse(response)[Program.Property] != null)
+                return JObject.Parse(response)[Program.Property].ToString().Trim();
+            else
+                throw new ApplicationException();
+
         }
 
         public virtual void Main() { }
@@ -128,14 +146,11 @@ namespace StarWars
 
     public class Process1 : ProcessBase
     {
-        public Process1(string[] Args) : base(Args) { }
-
         public override void Main()
         {
             ProcessName = "Synchronous";
             DisplayProcess();
             var filmItems = GetRestItemsFilm();
-            var listValues = new List<string>();
 
             for (int i = 0; i < filmItems.Count; i++)
             {
@@ -151,7 +166,6 @@ namespace StarWars
                 if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]") && !filmItems.Contains(value))
                 {
                     Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
-                    listValues.Add(value);
                 }
 
             }
@@ -162,14 +176,8 @@ namespace StarWars
 
     public class Process2 : ProcessBase
     {
-        public Process2(string[] Args) : base(Args) { }
-        private static string _property;
-        private static List<string> _values;
-
         public override void Main()
         {
-            _property = Property;
-            _values = new List<string>();
             ProcessName = "Threaded";
             DisplayProcess();
             var filmItems = GetRestItemsFilm();
@@ -206,9 +214,12 @@ namespace StarWars
             {
                 IRequestHandler requestHandler = new HttpWebRequestHandler();
                 string response = GetItems(requestHandler, _url);
-                string value = JObject.Parse(response)[_property].ToString();
+
+                if (string.IsNullOrEmpty(response) || JObject.Parse(response)[Program.Property] == null)
+                    throw new ApplicationException();
+
+                string value = JObject.Parse(response)[Program.Property].ToString();
                 Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
-                if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]")) { _values.Add(value); }
             }
 
             private string GetItems(IRequestHandler requestHandler, string url)
@@ -222,13 +233,9 @@ namespace StarWars
 
     public class Process3 : ProcessBase
     {
-        public Process3(string[] Args) : base(Args) { }
-        private static List<string> _values;
-
         public override void Main()
         {
             ProcessName = "ThreadPool";
-            _values = new List<string>();
             DisplayProcess();
             var filmItems = GetRestItemsFilm();
             var doneEvents = new ManualResetEvent[filmItems.Count];
@@ -237,7 +244,7 @@ namespace StarWars
             for (int i = 0; i < filmItems.Count; i++)
             {
                 doneEvents[i] = new ManualResetEvent(false);
-                var tpw = new ThreadPoolWork(Property, doneEvents[i]);
+                var tpw = new ThreadPoolWork(Program.Property, doneEvents[i]);
                 ThreadPool.QueueUserWorkItem(tpw.ThreadPoolCallBack, filmItems[i]);
                 Thread.Sleep(10);
             }
@@ -247,12 +254,10 @@ namespace StarWars
 
         private sealed class ThreadPoolWork
         {
-            private readonly string _property;
             private readonly ManualResetEvent _doneEvent;
 
             public ThreadPoolWork(string property, ManualResetEvent doneEvent)
             {
-                _property = property;
                 _doneEvent = doneEvent;
             }
 
@@ -261,10 +266,9 @@ namespace StarWars
                 string url = (string)threadContext;
                 IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
                 string response = httpWebRequestHandler.GetRestItems(url);
-                string value = JObject.Parse(response)[_property].ToString();
+                string value = JObject.Parse(response)[Program.Property].ToString();
 
                 Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
-                if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]")) { _values.Add(value); }
                 _doneEvent.Set();
             }
 
@@ -279,8 +283,6 @@ namespace StarWars
 
     public class Process4 : ProcessBase
     {
-        public Process4(string[] Args) : base(Args) { }
-
         public override void Main()
         {
             ProcessName = "Tasks";
@@ -291,7 +293,7 @@ namespace StarWars
             for (int i = 0; i < filmItems.Count; i++)
             {
                 string url = filmItems[i];
-                Task task = ClassHttp.MyTaskRequest(url, Property);
+                Task task = ClassHttp.MyTaskRequest(url);
                 tasks[i] = task;
             }
 
