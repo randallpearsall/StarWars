@@ -10,9 +10,9 @@ namespace StarWars
 {
     public class HttpWebRequestHandler : IRequestHandler
     {
-        public string GetRestItems(string url)
+        public string GetRestItems(string uri)
         {
-            var request = (HttpWebRequest)WebRequest.Create(url);
+            var request = (HttpWebRequest)WebRequest.Create(uri);
             var content = string.Empty;
 
             request.Method = "GET";
@@ -40,18 +40,18 @@ namespace StarWars
         // HttpClient is intended to be instantiated once per application, rather than per-use. See Remarks.
         static readonly HttpClient client = new HttpClient();
 
-        public static async Task MyTaskRequest(string url)
+        public static async Task MyTaskRequest(string uri)
         {
-            HttpResponseMessage response = await client.GetAsync(url);
-            response.EnsureSuccessStatusCode();
-            string responseBody = await response.Content.ReadAsStringAsync();
+            HttpResponseMessage responseMessage = await client.GetAsync(uri);
+            responseMessage.EnsureSuccessStatusCode();
+            string response = await responseMessage.Content.ReadAsStringAsync();
             // Above three lines can be replaced with new helper method below
-            // string responseBody = await client.GetStringAsync(uri);
+            ////string response = await client.GetStringAsync(uri);
 
-            if (string.IsNullOrEmpty(responseBody) || JObject.Parse(responseBody)[Program.Property] == null)
+            if (string.IsNullOrEmpty(response) || JObject.Parse(response)[Program.Property] == null)
                 throw new ApplicationException();
 
-            string value = JObject.Parse(responseBody)[Program.Property].ToString().Trim();
+            string value = JObject.Parse(response)[Program.Property].ToString().Trim();
             Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
         }
 

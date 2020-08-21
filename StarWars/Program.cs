@@ -125,10 +125,10 @@ namespace StarWars
 
         }
 
-        public string GetRestItem(string url)
+        public string GetRestItem(string uri)
         {
             IRequestHandler requestHandler = new HttpWebRequestHandler();
-            string response = requestHandler.GetRestItems(url);
+            string response = requestHandler.GetRestItems(uri);
 
             if (!string.IsNullOrEmpty(response) && JObject.Parse(response)[Program.Property] != null)
                 return JObject.Parse(response)[Program.Property].ToString().Trim();
@@ -159,8 +159,8 @@ namespace StarWars
                 if (value.Contains("http"))
                 {
                     char[] chars = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
-                    string url = value.TrimStart(chars).TrimEnd(chars);
-                    value = GetRestItem(url);
+                    string uri = value.TrimStart(chars).TrimEnd(chars);
+                    value = GetRestItem(uri);
                 }
 
                 if (!string.IsNullOrEmpty(value) && !string.Equals(value, "[]") && !filmItems.Contains(value))
@@ -185,8 +185,8 @@ namespace StarWars
 
             for (int i = 0; i < filmItems.Count; i++)
             {
-                string url = filmItems[i];
-                ThreadWork threadWork = new ThreadWork(url);
+                string uri = filmItems[i];
+                ThreadWork threadWork = new ThreadWork(uri);
                 Thread thread = new Thread(new ThreadStart(threadWork.DoWork));
                 threads.Add(thread);
                 thread.Start();
@@ -203,17 +203,17 @@ namespace StarWars
 
         private sealed class ThreadWork
         {
-            private readonly string _url;
+            private readonly string _uri;
 
-            public ThreadWork(string url)
+            public ThreadWork(string uri)
             {
-                _url = url;
+                _uri = uri;
             }
 
             public void DoWork()
             {
                 IRequestHandler requestHandler = new HttpWebRequestHandler();
-                string response = GetItems(requestHandler, _url);
+                string response = GetItems(requestHandler, _uri);
 
                 if (string.IsNullOrEmpty(response) || JObject.Parse(response)[Program.Property] == null)
                     throw new ApplicationException();
@@ -222,9 +222,9 @@ namespace StarWars
                 Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
             }
 
-            private string GetItems(IRequestHandler requestHandler, string url)
+            private string GetItems(IRequestHandler requestHandler, string uri)
             {
-                return requestHandler.GetRestItems(url);
+                return requestHandler.GetRestItems(uri);
             }
 
         }
@@ -263,18 +263,18 @@ namespace StarWars
 
             public void ThreadPoolCallBack(object threadContext)
             {
-                string url = (string)threadContext;
+                string uri = (string)threadContext;
                 IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
-                string response = httpWebRequestHandler.GetRestItems(url);
+                string response = httpWebRequestHandler.GetRestItems(uri);
                 string value = JObject.Parse(response)[Program.Property].ToString();
 
                 Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
                 _doneEvent.Set();
             }
 
-            private string GetItems(IRequestHandler requestHandler, string url)
+            private string GetItems(IRequestHandler requestHandler, string uri)
             {
-                return requestHandler.GetRestItems(url);
+                return requestHandler.GetRestItems(uri);
             }
 
         }
@@ -292,8 +292,8 @@ namespace StarWars
 
             for (int i = 0; i < filmItems.Count; i++)
             {
-                string url = filmItems[i];
-                Task task = ClassHttp.MyTaskRequest(url);
+                string uri = filmItems[i];
+                Task task = ClassHttp.MyTaskRequest(uri);
                 tasks[i] = task;
             }
 
