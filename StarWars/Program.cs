@@ -108,7 +108,7 @@ namespace StarWars
         {
             char[] chars = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
             string[] s = new string[] { "\",\r\n  \"" };
-            string url = "https://swapi.co/api/films/?search=" + Program.Title;
+            string url = "https://swapi.dev/api/films/?search=" + Program.Title;
             IRequestHandler requestHandler = new HttpWebRequestHandler();
             string response = requestHandler.GetRestItems(url);
             JToken token = JObject.Parse(response).SelectToken("results");
