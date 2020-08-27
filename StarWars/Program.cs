@@ -97,7 +97,7 @@ namespace StarWars
     {
         public string ProcessName { get; set; }
 
-        public void DisplayProcess()
+        private void DisplayProcess()
         {
             string message = string.Join(" ", "Running", ProcessName, "requests...\r\n");
             Console.Clear();
@@ -106,6 +106,7 @@ namespace StarWars
 
         public List<string> GetRestItemsFilm()
         {
+            DisplayProcess();
             char[] chars = new char[] { '[', '\r', '\n', ']', ' ', '\"' };
             string[] s = new string[] { "\",\r\n  \"" };
             string url = "https://swapi.dev/api/films/?search=" + Program.Title;
@@ -149,7 +150,6 @@ namespace StarWars
         public override void Main()
         {
             ProcessName = "Synchronous";
-            DisplayProcess();
             var filmItems = GetRestItemsFilm();
 
             for (int i = 0; i < filmItems.Count; i++)
@@ -178,8 +178,7 @@ namespace StarWars
     {
         public override void Main()
         {
-            ProcessName = "Threaded";
-            DisplayProcess();
+            ProcessName = "Thread";
             var filmItems = GetRestItemsFilm();
             var threads = new List<Thread>();
 
@@ -236,7 +235,6 @@ namespace StarWars
         public override void Main()
         {
             ProcessName = "ThreadPool";
-            DisplayProcess();
             var filmItems = GetRestItemsFilm();
             var doneEvents = new ManualResetEvent[filmItems.Count];
             ThreadPool.SetMinThreads(1, 1);
@@ -285,8 +283,7 @@ namespace StarWars
     {
         public override void Main()
         {
-            ProcessName = "Tasks";
-            DisplayProcess();
+            ProcessName = "Task";
             var filmItems = GetRestItemsFilm();
             Task[] tasks = new Task[filmItems.Count];
 
