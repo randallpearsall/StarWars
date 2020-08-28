@@ -14,13 +14,13 @@ namespace StarWars
 {
     #region Static Class
 
-    static class Program
+    public static class Program
     {
         public static string Title { get; set; }
         public static string Item { get; set; }
         public static string Property { get; set; }
 
-        static void Main(string[] args)
+        public static void Main(string[] args)
         {
             try
             {
@@ -262,8 +262,8 @@ namespace StarWars
             public void ThreadPoolCallBack(object threadContext)
             {
                 string uri = (string)threadContext;
-                IRequestHandler httpWebRequestHandler = new HttpWebRequestHandler();
-                string response = httpWebRequestHandler.GetRestItems(uri);
+                IRequestHandler requestHandler = new HttpWebRequestHandler();
+                string response = requestHandler.GetRestItems(uri);
                 string value = JObject.Parse(response)[Program.Property].ToString();
 
                 Console.WriteLine("Current thread: {0}, {1}", Thread.CurrentThread.ManagedThreadId, value);
