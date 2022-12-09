@@ -242,7 +242,8 @@ namespace StarWars
             for (int i = 0; i < filmItems.Count; i++)
             {
                 doneEvents[i] = new ManualResetEvent(false);
-                var tpw = new ThreadPoolWork(Program.Property, doneEvents[i]);
+                var tpw = new ThreadPoolWork(doneEvents[i]);
+                //var tpw = new ThreadPoolWork(Program.Property, doneEvents[i]);
                 ThreadPool.QueueUserWorkItem(tpw.ThreadPoolCallBack, filmItems[i]);
                 Thread.Sleep(10);
             }
@@ -254,10 +255,15 @@ namespace StarWars
         {
             private readonly ManualResetEvent _doneEvent;
 
-            public ThreadPoolWork(string property, ManualResetEvent doneEvent)
+            public ThreadPoolWork(ManualResetEvent doneEvent)
             {
                 _doneEvent = doneEvent;
             }
+
+            //public ThreadPoolWork(string property, ManualResetEvent doneEvent)
+            //{
+            //    _doneEvent = doneEvent;
+            //}
 
             public void ThreadPoolCallBack(object threadContext)
             {
@@ -270,10 +276,10 @@ namespace StarWars
                 _doneEvent.Set();
             }
 
-            private string GetItems(IRequestHandler requestHandler, string uri)
-            {
-                return requestHandler.GetRestItems(uri);
-            }
+            //private string GetItems(IRequestHandler requestHandler, string uri)
+            //{
+            //    return requestHandler.GetRestItems(uri);
+            //}
 
         }
 
